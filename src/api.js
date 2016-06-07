@@ -22,7 +22,6 @@ class API {
             form: body,
             jar: this.cookieJar,
             qs: params,
-            // useQuerystring: true,
         };
 
         return new Promise((resolve, reject) => {
@@ -33,9 +32,7 @@ class API {
                 }
                 if(this.verbose) {
                     console.log(method, " ", url);
-                    console.log("==>", body.substr(0, 1000));
-                    // console.log(options);
-                    console.log();
+                    console.log("==>", body.substr(0, 400), "\n");
                 }
                 if(response.headers["content-type"] !== "application/json") {
                     console.error(`Error, response is not applicaiton/json, status: ${response.status}`);
@@ -43,7 +40,6 @@ class API {
                 }
                 else {
                     const json = JSON.parse(body);
-                    console.log("==>", json);
                     resolve(json);
                 }
             });
@@ -51,10 +47,10 @@ class API {
     }
 
     /**
-    * @params: query parameter
-    * @headers: http header
-    * @body: http payload
-    */
+     * @params: query parameter
+     * @headers: http header
+     * @body: http payload
+     */
     _authRequest (method, url, { params = {}, headers = {}, body = {} }) {
         if(this.access_token === undefined) {
             throw new Error("User need to be authorized");
@@ -63,7 +59,6 @@ class API {
         return this._request(method, url, { params, headers, body });
     }
 
-    //
     login (username, password) {
         const body = {
             "client_id": this.client_id,
@@ -77,16 +72,14 @@ class API {
         result.then(json => {
             this.access_token = json.response.access_token;
             this.refresh_token = json.response.refresh_token;
-            if(this.verbose) {
-                console.log(this.cookieJar.getCookieString("https://oauth.secure.pixiv.net"));
-                console.log();
-            }
         });
         return result;
     }
 
-    // TODO some parameters are not supported by pixiv
-    // image_sizes = ['px_128x128', 'px_240mw', 'px_480mw', 'px_600mw', 'large']
+    /**
+     * FIXME: some parameters are not supported by pixiv
+     * image_sizes = ['px_128x128', 'px_240mw', 'px_480mw', 'px_600mw', 'large']
+     */
     ranking (ranking_type = 'all', mode = 'daily', page = 1, per_page = 50, date = null,
         image_sizes = ['px_128x128', 'px_480mw', 'large'],
         profile_image_sizes = ['px_170x170', 'px_50x50'],
@@ -172,7 +165,7 @@ class API {
         return this._authRequest('GET', this.URL_ME_FAVORITE_WORKS, { params });
     }
 
-    // If user already favorited thie work, server responds with a 400 error.
+    // If user already favorited this work, server responds with a 400 error.
     meFavoriteWorksAdd (work_id, publicity = "public") {
         const params = {
             publicity,
@@ -181,8 +174,10 @@ class API {
         return this._authRequest("POST", this.URL_ME_FAVORITE_WORKS, { params });
     }
 
-    // work_id is actually not the id of the work itself. It can be obtained by
-    // calling meFavoriteWorks()
+    /**
+     * @work_id, can be obtained by calling meFavoriteWorks(),
+     * not the id of the work itself.
+     */
     meFavoriteWorksDelete (work_ids, publicity = "public") {
         const params = {
             publicity,
