@@ -1,49 +1,52 @@
-const utils = require("./utils");
+const cookie = require("cookie");
 const fetch = require("isomorphic-fetch");
 const querystring = require("querystring");
-const cookie = require("cookie");
+const request = require("request");
+const utils = require("./utils");
 
 class API {
     constructor (props) {
         this.client_id = props.client_id;
         this.client_secret = props.client_secret;
+        this.cookieJar = request.jar();
         this.verbose = true;
     }
 
-    _request (method = "GET", url, { params = {}, headers = {}, body = "" }) {
-        if(!utils.isEmpty(params)) {
-            url = url + "?" + querystring.stringify(params);
-        }
+    _request (method = "GET", url, { params = {}, headers = {}, body = {} }) {
         headers["Refer"] = this.URL_REFER;
         headers["User-Agent"] = "PixivIOSApp/5.8.3";
-        headers["Content-Type"] = "application/x-www-form-urlencoded";
         const options = {
+            url,
             method,
             headers,
-            body: querystring.stringify(body),
+            form: body,
+            jar: this.cookieJar,
+            qs: params,
+            // useQuerystring: true,
         };
 
         return new Promise((resolve, reject) => {
-            fetch(url, options)
-                .then(response => {
-                    if(response.headers.get("set-cookie")) {
-                        this.cookieJar = cookie.parse(response.headers.get("set-cookie"));
-                        // console.log(this.cookieJar);
-                    }
-                    return response;
-                })
-                .then(response => {
-                    response.text().then(text => {
-                        const body = JSON.parse(text);
-                        if(this.verbose) {
-                            console.log(url);
-                            // console.log(response);
-                            console.log(body);
-                        }
-                        resolve(body);
-                    });
-                })
-                .catch(reject);
+
+            request(options, (error, response, body) => {
+                if(error) {
+                    reject(error);
+                }
+                if(this.verbose) {
+                    console.log(method, " ", url);
+                    console.log("==>", body.substr(0, 1000));
+                    // console.log(options);
+                    console.log();
+                }
+                if(response.headers["content-type"] !== "application/json") {
+                    console.error(`Error, response is not applicaiton/json, status: ${response.status}`);
+                    resolve(response);
+                }
+                else {
+                    const json = JSON.parse(body);
+                    console.log("==>", json);
+                    resolve(json);
+                }
+            });
         });
     }
 
@@ -52,16 +55,15 @@ class API {
     * @headers: http header
     * @body: http payload
     */
-    _authRequest (method, url, { params = {}, headers = {}, body = "" }) {
+    _authRequest (method, url, { params = {}, headers = {}, body = {} }) {
         if(this.access_token === undefined) {
             throw new Error("User need to be authorized");
         }
         headers['Authorization'] = `Bearer ${this.access_token}`;
-        headers["Cookie"] = cookie.serialize("PHPSESSID", this.cookieJar["PHPSESSID"]);
         return this._request(method, url, { params, headers, body });
     }
 
-    // 
+    //
     login (username, password) {
         const body = {
             "client_id": this.client_id,
@@ -75,6 +77,10 @@ class API {
         result.then(json => {
             this.access_token = json.response.access_token;
             this.refresh_token = json.response.refresh_token;
+            if(this.verbose) {
+                console.log(this.cookieJar.getCookieString("https://oauth.secure.pixiv.net"));
+                console.log();
+            }
         });
         return result;
     }
@@ -96,7 +102,6 @@ class API {
             image_sizes: image_sizes.join(","),
             profile_image_sizes: profile_image_sizes.join(","),
         };
-        console.log(image_sizes.join(","));
         if(date !== null) {
             params['date'] = date;
         }
@@ -110,8 +115,7 @@ class API {
             'image_sizes': 'px_128x128,small,medium,large,px_480mw',
             'include_stats': 'true',
         };
-        const result = self.auth_request('GET', url, params=params);
-        return JSON.parse(result);
+        return this._authRequest('GET', url, { params });
     }
 
     // user information
@@ -125,14 +129,14 @@ class API {
             'include_workspace': 1,
             'include_contacts': 1,
         };
-        const result = this._authRequest('GET', url, params=params);
-        return JSON.parse(result);
+        return this._authRequest('GET', url, { params });
     }
 
     // get works per user
-    userWorks (self, author_id, page = 1, per_page = 30,
+    userWorks (user_id, page = 1, per_page = 30,
         image_sizes = ['px_128x128', 'px_480mw', 'large'],
         include_stats = true, include_sanity_level = true) {
+        const url = `${this.URL_USERS}/${user_id}/works.json`;
         const params = {
             'page': page,
             'per_page': per_page,
@@ -140,9 +144,7 @@ class API {
             'include_sanity_level': include_sanity_level,
             'image_sizes': image_sizes.join(","),
         };
-        const url = `${this.URL_USERS}/${author_id}/works.json`;
-        const result = this._authRequest('GET', url, params=params);
-        return JSON.parse(result);
+        return this._authRequest('GET', url, { params });
     }
 
     // my subscription
@@ -155,8 +157,7 @@ class API {
         if(max_id !== null) {
             params['max_id'] = max_id;
         }
-        const result = this._authRequest("GET", this.URL_ME_FEEDS, params);
-        return result;
+        return this._authRequest("GET", this.URL_ME_FEEDS, { params });
     }
 
     // my favorite works
@@ -168,29 +169,27 @@ class API {
             publicity,
             image_sizes: image_sizes.join(","),
         }
-        const result = self.auth_requests_call('GET', this.URL_ME_FAVORITE_WORKS, params = params);
-        return JSON.parse(result);
+        return this._authRequest('GET', this.URL_ME_FAVORITE_WORKS, { params });
     }
 
-    meFavoriteWorksAdd (work_id, publicity) {
-        params = {
-            work_id,
-            publicity,
-        };
-        const result = this._authRequest("POST", this.URL_ME_FAVORITE_WORKS, params);
-        return JSON.parse(result);
-    }
-
-    meFavoriteWorksDelete (work_ids, publicity) {
+    // If user already favorited thie work, server responds with a 400 error.
+    meFavoriteWorksAdd (work_id, publicity = "public") {
         const params = {
-            ids: work_ids.join(","),
             publicity,
-        }
-        const result = this._authRequest("DELTE", this.URL_ME_FAVORITE_WORKS, params);
-        return JSON.parse(result);
+            work_id,
+        };
+        return this._authRequest("POST", this.URL_ME_FAVORITE_WORKS, { params });
     }
 
-    //订阅
+    // work_id is actually not the id of the work itself. It can be obtained by
+    // calling meFavoriteWorks()
+    meFavoriteWorksDelete (work_ids, publicity = "public") {
+        const params = {
+            publicity,
+            ids: work_ids.join(","),
+        }
+        return this._authRequest("DELETE", this.URL_ME_FAVORITE_WORKS, { params });
+    }
 }
 
 API.prototype.URL_REFER = "http://spapi.pixiv.net/";
