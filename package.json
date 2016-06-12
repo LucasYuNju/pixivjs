@@ -4,7 +4,7 @@
   "description": "pixix API for node.js",
   "main": "api.js",
   "scripts": {
-    "test": "node test/test/js"
+    "test": "node test/test.js"
   },
   "repository": {
     "type": "git",
@@ -23,6 +23,7 @@
   "homepage": "https://github.com/LucasYuNju/pixivjs#readme",
   "devDependencies": {},
   "dependencies": {
-    "request": "^2.72.0"
+    "isomorphic-fetch": "^2.2.1",
+    "querystring": "^0.2.0"
   }
 }
