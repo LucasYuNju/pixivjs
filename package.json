@@ -1,6 +1,6 @@
 {
   "name": "pixivjs",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "pixix API for node.js",
   "main": "api.js",
   "scripts": {
