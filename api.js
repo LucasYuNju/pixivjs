@@ -1,12 +1,11 @@
 const fetch = require("isomorphic-fetch");
-const querystr = require("querystring");
 
 class API {
     constructor (props) {
         this.debug = props.debug;
     }
 
-    _toQueryString(obj) {
+    _querystring(obj) {
         return obj ? Object.keys(obj).sort().map(function (key) {
             var val = obj[key];
             if (Array.isArray(val)) {
@@ -20,7 +19,7 @@ class API {
 
     _request (method = "GET", url, { params = {}, headers = {}, body = {} }) {
         if(Object.keys(params).length !== 0) {
-            url += "?" + this._toQueryString(params);
+            url += "?" + this._querystring(params);
         }
         headers["Refer"] = this.URLS.REFER;
         headers["User-Agent"] = "PixivIOSApp/5.8.3";
@@ -29,19 +28,11 @@ class API {
             method,
             headers,
             credentials: 'same-origin',
-            body: querystr.stringify(body),
+            body: this._querystring(body),
         };
 
         return new Promise((resolve, reject) => {
             fetch(url, options)
-                .then(response => {
-                    if(response.headers.get("set-cookie")) {
-                        // console.log(response.headers.get("set-cookie"));
-                        // this.cookieJar = cookie.parse(response.headers.get("set-cookie"));
-                        // console.log(this.cookieJar);
-                    }
-                    return response;
-                })
                 .then(response => response.text())
                 .then(text => {
                     if(this.debug) {
@@ -53,25 +44,6 @@ class API {
                 })
                 .catch(reject);
         });
-
-        // return new Promise((resolve, reject) => {
-        //     request(options, (error, response, body) => {
-        //         if(error) {
-        //             reject(error);
-        //         }
-        //         if(this.debug) {
-        //             console.log(method, " ", url);
-        //             console.log("==>", body.substr(0, 400), "\n");
-        //         }
-        //         if(response.headers["content-type"] !== "application/json") {
-        //             reject(`Error, response is not applicaiton/json, status: ${response.status}`);
-        //         }
-        //         else {
-        //             const json = JSON.parse(body);
-        //             resolve(json);
-        //         }
-        //     });
-        // });
     }
 
     /**
@@ -81,8 +53,7 @@ class API {
      */
     _authRequest (method, url, { params = {}, headers = {}, body = {} }) {
         if(this.access_token === undefined) {
-            // return Promise.reject(new Error("User need to be authorized"));
-            throw new Error("User need to be authorized");
+            return Promise.reject(new Error("User need to be authorized"));
         }
         headers['Authorization'] = `Bearer ${this.access_token}`;
         return this._request(method, url, { params, headers, body });

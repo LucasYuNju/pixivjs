@@ -1,6 +1,6 @@
 {
   "name": "pixivjs",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "pixix API for node.js",
   "main": "api.js",
   "scripts": {
@@ -23,7 +23,6 @@
   "homepage": "https://github.com/LucasYuNju/pixivjs#readme",
   "devDependencies": {},
   "dependencies": {
-    "isomorphic-fetch": "^2.2.1",
-    "querystring": "^0.2.0"
+    "isomorphic-fetch": "^2.2.1"
   }
 }
