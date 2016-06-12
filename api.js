@@ -1,19 +1,13 @@
-const cookie = require("cookie");
-const fetch = require("isomorphic-fetch");
-const querystring = require("querystring");
 const request = require("request");
-const utils = require("./utils");
 
 class API {
     constructor (props) {
-        this.client_id = props.client_id;
-        this.client_secret = props.client_secret;
         this.cookieJar = request.jar();
-        this.verbose = true;
+        this.debug = props.debug;
     }
 
     _request (method = "GET", url, { params = {}, headers = {}, body = {} }) {
-        headers["Refer"] = this.URL_REFER;
+        headers["Refer"] = this.URLS.REFER;
         headers["User-Agent"] = "PixivIOSApp/5.8.3";
         const options = {
             url,
@@ -25,18 +19,16 @@ class API {
         };
 
         return new Promise((resolve, reject) => {
-
             request(options, (error, response, body) => {
                 if(error) {
                     reject(error);
                 }
-                if(this.verbose) {
+                if(this.debug) {
                     console.log(method, " ", url);
                     console.log("==>", body.substr(0, 400), "\n");
                 }
                 if(response.headers["content-type"] !== "application/json") {
-                    console.error(`Error, response is not applicaiton/json, status: ${response.status}`);
-                    resolve(response);
+                    reject(`Error, response is not applicaiton/json, status: ${response.status}`);
                 }
                 else {
                     const json = JSON.parse(body);
@@ -53,6 +45,7 @@ class API {
      */
     _authRequest (method, url, { params = {}, headers = {}, body = {} }) {
         if(this.access_token === undefined) {
+            // return Promise.reject(new Error("User need to be authorized"));
             throw new Error("User need to be authorized");
         }
         headers['Authorization'] = `Bearer ${this.access_token}`;
@@ -61,13 +54,13 @@ class API {
 
     login (username, password) {
         const body = {
-            "client_id": this.client_id,
-            "client_secret": this.client_secret,
+            "client_id": this.CLIENT_ID,
+            "client_secret": this.CLIENT_SECRET,
             username,
             password,
             grant_type: "password",
         }
-        const url = this.URL_AUTH_TOKEN;
+        const url = this.URLS.AUTH_TOKEN;
         const result = this._request("POST", url, { body });
         result.then(json => {
             this.access_token = json.response.access_token;
@@ -85,7 +78,7 @@ class API {
         profile_image_sizes = ['px_170x170', 'px_50x50'],
         include_stats = true, include_sanity_level = true) {
 
-        const url = `${this.URL_RANKING}/${ranking_type}.json`;
+        const url = `${this.URLS.RANKING}/${ranking_type}.json`;
         const params = {
             mode,
             page,
@@ -103,7 +96,7 @@ class API {
 
     // work infomartion
     works (illust_id) {
-        const url = `${this.URL_WORKS}/${illust_id}.json`;
+        const url = `${this.URLS.WORKS}/${illust_id}.json`;
         const params = {
             'image_sizes': 'px_128x128,small,medium,large,px_480mw',
             'include_stats': 'true',
@@ -113,7 +106,7 @@ class API {
 
     // user information
     users (user_id) {
-        const url = `${this.URL_USERS}/${user_id}.json`;
+        const url = `${this.URLS.USERS}/${user_id}.json`;
         const params = {
             'profile_image_sizes': 'px_170x170,px_50x50',
             'image_sizes': 'px_128x128,small,medium,large,px_480mw',
@@ -129,7 +122,7 @@ class API {
     userWorks (user_id, page = 1, per_page = 30,
         image_sizes = ['px_128x128', 'px_480mw', 'large'],
         include_stats = true, include_sanity_level = true) {
-        const url = `${this.URL_USERS}/${user_id}/works.json`;
+        const url = `${this.URLS.USERS}/${user_id}/works.json`;
         const params = {
             'page': page,
             'per_page': per_page,
@@ -150,7 +143,7 @@ class API {
         if(max_id !== null) {
             params['max_id'] = max_id;
         }
-        return this._authRequest("GET", this.URL_ME_FEEDS, { params });
+        return this._authRequest("GET", this.URLS.ME_FEEDS, { params });
     }
 
     // my favorite works
@@ -162,7 +155,7 @@ class API {
             publicity,
             image_sizes: image_sizes.join(","),
         }
-        return this._authRequest('GET', this.URL_ME_FAVORITE_WORKS, { params });
+        return this._authRequest('GET', this.URLS.ME_FAVORITE_WORKS, { params });
     }
 
     // If user already favorited this work, server responds with a 400 error.
@@ -171,7 +164,7 @@ class API {
             publicity,
             work_id,
         };
-        return this._authRequest("POST", this.URL_ME_FAVORITE_WORKS, { params });
+        return this._authRequest("POST", this.URLS.ME_FAVORITE_WORKS, { params });
     }
 
     /**
@@ -183,17 +176,21 @@ class API {
             publicity,
             ids: work_ids.join(","),
         }
-        return this._authRequest("DELETE", this.URL_ME_FAVORITE_WORKS, { params });
+        return this._authRequest("DELETE", this.URLS.ME_FAVORITE_WORKS, { params });
     }
 }
 
-API.prototype.URL_REFER = "http://spapi.pixiv.net/";
-API.prototype.URL_AUTH_TOKEN = "https://oauth.secure.pixiv.net/auth/token";
-API.prototype.URL_WORKS = "https://public-api.secure.pixiv.net/v1/works";
-API.prototype.URL_USERS = "https://public-api.secure.pixiv.net/v1/users";
-API.prototype.URL_RANKING = "https://public-api.secure.pixiv.net/v1/ranking";
-API.prototype.URL_ME_FEEDS = "https://public-api.secure.pixiv.net/v1/me/feeds.json";
-API.prototype.URL_ME_FAVORITE_WORKS = "https://public-api.secure.pixiv.net/v1/me/favorite_works.json";
+API.prototype.URLS = {
+    REFER: "http://spapi.pixiv.net/",
+    AUTH_TOKEN: "https://oauth.secure.pixiv.net/auth/token",
+    WORKS: "https://public-api.secure.pixiv.net/v1/works",
+    USERS: "https://public-api.secure.pixiv.net/v1/users",
+    RANKING: "https://public-api.secure.pixiv.net/v1/ranking",
+    ME_FEEDS: "https://public-api.secure.pixiv.net/v1/me/feeds.json",
+    ME_FAVORITE_WORKS: "https://public-api.secure.pixiv.net/v1/me/favorite_works.json",
+}
 API.prototype.IMAGE_SIZES = ["px_128x128", "small", "medium", "large", "px_480mw"];
+API.prototype.CLIENT_ID = "bYGKuGVw91e0NMfPGp44euvGt59s";
+API.prototype.CLIENT_SECRET = "HP3RmkgAmEGro0gn1x9ioawQE8WMfvLXDz3ZqxpK";
 
 module.exports = API;

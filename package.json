@@ -1,12 +1,10 @@
 {
   "name": "pixivjs",
   "version": "1.0.0",
-  "description": "js implementation of pixix API",
+  "description": "pixix API for node.js",
   "main": "index.js",
   "scripts": {
-    "test": "node index.js",
-    "start": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node test/test/js"
   },
   "repository": {
     "type": "git",
@@ -14,9 +12,10 @@
   },
   "keywords": [
     "pixiv",
-    "API"
+    "API",
+    "picture"
   ],
-  "author": "yang",
+  "author": "ftang",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/LucasYuNju/pixivjs/issues"
@@ -24,8 +23,6 @@
   "homepage": "https://github.com/LucasYuNju/pixivjs#readme",
   "devDependencies": {},
   "dependencies": {
-    "cookie": "^0.3.1",
-    "isomorphic-fetch": "^2.2.1",
     "request": "^2.72.0"
   }
 }
